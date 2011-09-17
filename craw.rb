@@ -32,7 +32,6 @@ class Craw
   def initialize
     unless @@sess
       s = Patron::Session.new
-      s.timeout = 10
       s.base_url = "http://www.addic7ed.com/"
       s.headers['User-Agent'] = 'Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.1.3)'
       s.headers['Referer'] = s.base_url
@@ -44,13 +43,7 @@ class Craw
     p "wanna get #{url}"
     rest  unless @@rested
     @@rested = false
-    begin
-      @@sess.get url
-    rescue Patron::HostResolutionError
-      p 'oops... unresolved hostname. it happens, retrying'
-      rest
-      @@sess.get url
-    end
+    @@sess.get url
   end
 
   def rest
@@ -150,5 +143,5 @@ Dir.glob('*.mkv').each do |name|
   ap meta
   sub = craw.get_sub(meta)
   File.open(srt, 'wb') { |f| f << sub.body }
-  ap "Writing sub #{sub}"
+  ap "Writing sub #{srt}"
 end
