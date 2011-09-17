@@ -1,8 +1,9 @@
 Installation:
 ====
 
-    mv ./craw /usr/bin
-    chmod 755 /usr/bin/craw
+    sudo gem install awesome_print nokogiri patron
+    sudo mv ./craw /usr/bin
+    sudo chmod 755 /usr/bin/craw
 
 Usage:
 ====
