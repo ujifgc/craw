@@ -4,7 +4,6 @@ Installation:
     sudo gem install awesome_print nokogiri patron
     sudo cp craw.rb /usr/bin/craw
     sudo chmod 755 /usr/bin/craw
-
 Usage:
 ====
 
@@ -30,4 +29,4 @@ The output will be something like:
     Weeds.S07E11.720p.HDTV.X264-DIMENSION.srt
 
 To www.addic7ed.com will be `2*n` http requests made: `n` to get pages of the episodes
-and `n` to get actual subtitles (where n is a count of mkv files in the directory).
+and `n` to get actual subtitles (where `n` is a count of mkv files in the directory).
