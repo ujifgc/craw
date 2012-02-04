@@ -5,15 +5,16 @@ require 'awesome_print'
 require 'nokogiri'
 require 'patron'
 
-LANGS = %w(english russian)
+LANGS = %w(english)
 
 LIKE_FLAGS = [ /720p?/i, /LOL/i, /ASAP/i, /bia/i ]
 NEED_FLAGS = [ /.*/i ]
-DROP_FLAGS = [ /web.?dl/i, /dvd.?rip/i ]
-WORK_PAIRS = {
-  'immerse' => /asap/i,
-  'dimension' => /lol/i }
-RELEASE_GROUPS = %W(lol dimension asap immerse 2hd bia tla orenji)
+DROP_FLAGS = [ /web.?dl/i, /dvd.?rip/i, /Blu/i, /notv/i, /reward/i, /sys/i ]
+WORK_GROUPS = [
+  [/dimension/i, /lol/i],
+  [/immerse/i, /asap/i],
+]
+RELEASE_GROUPS = %W(lol dimension asap immerse 2hd bia tla orenji ctu fqm avs)
 
 class String
   alias_method :old_strip, :strip
@@ -31,7 +32,6 @@ end
 
 class Craw
   @@sess = nil
-  @@rested = true
 
   def initialize
     unless @@sess
@@ -46,9 +46,8 @@ class Craw
 
   def http_get(url)
     p "wanna get #{url}"
-    rest  unless @@rested
-    @@rested = false
     begin
+      rest
       @@sess.get url
     rescue # Patron::HostResolutionError
       p 'oops... unresolved hostname. it happens, retrying'
@@ -61,7 +60,6 @@ class Craw
     duration = 2+rand(4)
     p "waiting #{duration} seconds..."
     sleep duration
-    @@rested = true
   end
 
   def get_url(serie)
@@ -110,9 +108,9 @@ class Craw
     end
 
     #drop flags
-    selected.select! do |sub|
-      !sub[:flags].find{ |s| s.match_any DROP_FLAGS } && sub[:flags].find{ |s| s.match_any NEED_FLAGS }
-    end
+    #selected.select! do |sub|
+    #  !sub[:flags].find{ |s| s.match_any DROP_FLAGS } && sub[:flags].find{ |s| s.match_any NEED_FLAGS }
+    #end
 
     #join versions
     versions = {}
@@ -127,17 +125,25 @@ class Craw
     end
 
     #sort
-    selected.sort_by!{ |s| -(s[:sequences] + s[:downloads].to_f/1000) }
+    #selected.sort_by!{ |s| -(s[:sequences] + s[:downloads].to_f/1000) }
 
     #select link
     selected.each do |sub|
       sub[:link] = sub[:links].last
     end
 
-    LIKE_FLAGS.reverse.each do |lf|
-      idx = selected.index{ |s| s[:flags].index{ |f| f.match(lf) } }
+    WORK_GROUPS.each do |rgs|
+      ok_flags = rgs  if serie[:rg].match_any rgs
+      next  unless ok_flags
+      idx = selected.index{ |s| s[:flags].index{ |f| f.match_any ok_flags } }
       return selected[idx]  if idx
     end
+    
+    #LIKE_FLAGS.reverse.each do |lf|
+    #  idx = selected.index{ |s| s[:flags].index{ |f| f.match(lf) } }
+    #  return selected[idx]  if idx
+    #end
+
     selected.first
   end
 
@@ -151,7 +157,9 @@ def prepare_name(s)
   s = s.gsub('.','_').gsub(/_\d\d\d\d/, '')
   h = {
     /the_office_us/i => 'The_Office_(US)',
-    /Charlie.?s_Angels/i => "Charlie's_Angels"
+    /Charlie.?s_Angels/i => "Charlie's_Angels",
+    /the_la_complex/i => 'The_L.A._Complex',
+    /shameless.*u.*s/i => 'Shameless_(US)',
   }
   h.to_a.each do |a|
     s = s.gsub a[0], a[1]
@@ -184,13 +192,16 @@ Dir.glob('*.mkv').each do |name|
             flags: tags[4].split('.'),
             rg: extract_rg(tags[4]) }
   while true
-    ap "Searching sub for #{name} ep.#{serie[:episode]} (tags: #{serie[:flags].join(', ')}, rg: #{serie[:rg]})"
+    ap "Searching sub for #{name} s.#{serie[:season]} ep.#{serie[:episode]} (tags: #{serie[:flags].join(', ')}, rg: #{serie[:rg]})"
     meta = craw.get_url(serie)
+    ap meta
+    return
     if meta
       ap meta
       sub = craw.get_sub(meta)
       File.open(srt, 'wb') { |f| f << sub.body }
       ap "Writing sub #{srt}"
+      ap "=================="
       break
     else
       ap "Failed to extract meta"
