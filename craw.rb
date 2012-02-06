@@ -13,6 +13,7 @@ DROP_FLAGS = [ /web.?dl/i, /dvd.?rip/i, /Blu/i, /notv/i, /reward/i, /sys/i ]
 WORK_GROUPS = [
   [/dimension/i, /lol/i],
   [/immerse/i, /asap/i],
+  [/fqm/i, /orenji/i],
 ]
 RELEASE_GROUPS = %W(lol dimension asap immerse 2hd bia tla orenji ctu fqm avs)
 
@@ -32,6 +33,7 @@ end
 
 class Craw
   @@sess = nil
+  @@fresh = true
 
   def initialize
     unless @@sess
@@ -45,20 +47,23 @@ class Craw
   end
 
   def http_get(url)
-    p "wanna get #{url}"
+    print ".. wanna get #{url}, "
     begin
       rest
       @@sess.get url
     rescue # Patron::HostResolutionError
-      p 'oops... unresolved hostname. it happens, retrying'
       rest
       @@sess.get url
     end
   end
 
   def rest
+    if @@fresh
+      @@fresh = false
+      return
+    end
     duration = 2+rand(4)
-    p "waiting #{duration} seconds..."
+    print "waiting #{duration} seconds...\n"
     sleep duration
   end
 
@@ -132,18 +137,38 @@ class Craw
       sub[:link] = sub[:links].last
     end
 
+    fidx = nil
+    idx = selected.index do |s|
+      fidx = s[:flags].index do |f|
+        f.match /#{serie[:rg]}/i
+      end
+    end
+    if idx
+      ap "! found exact match: '#{selected[idx][:flags][fidx]}' == '#{serie[:rg]}'"
+      return selected[idx]  
+    end
+
     WORK_GROUPS.each do |rgs|
       ok_flags = rgs  if serie[:rg].match_any rgs
       next  unless ok_flags
-      idx = selected.index{ |s| s[:flags].index{ |f| f.match_any ok_flags } }
-      return selected[idx]  if idx
+      fidx = nil
+      idx = selected.index do |s|
+        fidx = s[:flags].index do |f|
+          f.match_any ok_flags
+        end
+      end
+      if idx
+        ap "! found group match: '#{selected[idx][:flags][fidx]}' should work with '#{serie[:rg]}'"
+        return selected[idx]  
+      end
     end
     
     #LIKE_FLAGS.reverse.each do |lf|
     #  idx = selected.index{ |s| s[:flags].index{ |f| f.match(lf) } }
     #  return selected[idx]  if idx
     #end
-
+    
+    ap "! exact match not found, selecting first subtitle"
     selected.first
   end
 
@@ -192,21 +217,18 @@ Dir.glob('*.mkv').each do |name|
             flags: tags[4].split('.'),
             rg: extract_rg(tags[4]) }
   while true
-    ap "Searching sub for #{name} s.#{serie[:season]} ep.#{serie[:episode]} (tags: #{serie[:flags].join(', ')}, rg: #{serie[:rg]})"
+    ap "? searching sub for #{name} s.#{serie[:season]} ep.#{serie[:episode]} (tags: #{serie[:flags].join(', ')}, rg: #{serie[:rg]})"
     meta = craw.get_url(serie)
-    ap meta
-    return
     if meta
       ap meta
       sub = craw.get_sub(meta)
       File.open(srt, 'wb') { |f| f << sub.body }
-      ap "Writing sub #{srt}"
-      ap "=================="
+      ap "= writing sub #{srt}"
       break
     else
-      ap "Failed to extract meta"
+      ap "- failed to extract meta"
       if @double
-        ap "Trying to get meta from double serie"
+        ap "? trying to get meta from double serie"
         serie[:episode] = @double[3]
       else
         break
