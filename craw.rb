@@ -7,20 +7,22 @@ require 'patron'
 
 LANGS = %w(english)
 
-LIKE_FLAGS = [ /720p?/i, /LOL/i, /ASAP/i, /bia/i ]
-NEED_FLAGS = [ /.*/i ]
-DROP_FLAGS = [ /web.?dl/i, /dvd.?rip/i, /Blu/i, /notv/i, /reward/i, /sys/i ]
+RELEASE_GROUPS = %W(lol dimension asap immerse 2hd bia tla orenji ctu fqm avs p0w4 fov)
 WORK_GROUPS = [
   [/dimension/i, /lol/i],
   [/immerse/i, /asap/i],
   [/fqm/i, /orenji/i],
 ]
-RELEASE_GROUPS = %W(lol dimension asap immerse 2hd bia tla orenji ctu fqm avs)
+SERIES_MAP = {
+  /the_office_us/i => 'The_Office_(US)',
+  /Charlie.?s_Angels/i => "Charlie's_Angels",
+  /the_la_complex/i => 'The_L.A._Complex',
+  /shameless.*u.*s/i => 'Shameless_(US)',
+}
 
 class String
-  alias_method :old_strip, :strip
-  def strip
-    self.gsub(/ +/, ' ').old_strip
+  def squeeze
+    self.gsub(/ +/, ' ').strip
   end
 
   def match_any(regs)
@@ -72,6 +74,8 @@ class Craw
     subtitles[:page_url] = '/serie/%s/%s/%s/%s' % [serie[:name], serie[:season], serie[:episode], serie[:title]||'0']
     resp = http_get subtitles[:page_url]
     ap status: resp.status, size: resp.body.length
+
+    #extract subtitle versions
     if resp.status < 400
       doc = Nokogiri::HTML resp.body
       subs = []
@@ -81,13 +85,13 @@ class Craw
         table = node.ancestors('table').first
         table.css('td.language').each do |lang|
           sub = {}
-          sub[:version] = node.content.gsub(/version/i, '').strip
-          sub[:lang] = lang.content.strip
-          sub[:status] = lang.next_element.content.strip
+          sub[:version] = node.content.gsub(/version/i, '').squeeze
+          sub[:lang] = lang.content.squeeze
+          sub[:status] = lang.next_element.content.squeeze
           links = lang.parent.css('td a').select{ |l| l[:href].match /original|updated/ }.sort
           sub[:links] = links.map{ |l| l[:href] }
           flags = lang.parent.next_element.css('img[title="Hearing Impaired"], img[title="Corrected"]')
-          stats = lang.parent.next_element.children.first.content.strip.match /.*?(\d+) downloads.*?(\d+) sequences.*/i
+          stats = lang.parent.next_element.children.first.content.squeeze.match /.*?(\d+) downloads.*?(\d+) sequences.*/i
           if stats
             sub[:downloads] = stats[1].to_i
             sub[:sequences] = stats[2].to_i
@@ -112,12 +116,7 @@ class Craw
       sub.delete(:status).match /complete/i
     end
 
-    #drop flags
-    #selected.select! do |sub|
-    #  !sub[:flags].find{ |s| s.match_any DROP_FLAGS } && sub[:flags].find{ |s| s.match_any NEED_FLAGS }
-    #end
-
-    #join versions
+    #investigate version tags
     versions = {}
     selected.each do |sub|
       ver = sub[:version]
@@ -125,18 +124,18 @@ class Craw
       versions[ver] += sub[:flags]
       versions[ver].uniq!
     end
+
+    #try to select the richest version
     selected.select! do |sub|
       sub[:flags].sort == versions[sub[:version]].sort
     end
 
-    #sort
-    #selected.sort_by!{ |s| -(s[:sequences] + s[:downloads].to_f/1000) }
-
-    #select link
+    #select the last link and drop the rest
     selected.each do |sub|
-      sub[:link] = sub[:links].last
+      sub[:link] = sub.delete(:links).last
     end
 
+    #try to find exact match
     fidx = nil
     idx = selected.index do |s|
       fidx = s[:flags].index do |f|
@@ -148,6 +147,7 @@ class Craw
       return selected[idx]  
     end
 
+    #try to find the match likely to work
     WORK_GROUPS.each do |rgs|
       ok_flags = rgs  if serie[:rg].match_any rgs
       next  unless ok_flags
@@ -163,11 +163,7 @@ class Craw
       end
     end
     
-    #LIKE_FLAGS.reverse.each do |lf|
-    #  idx = selected.index{ |s| s[:flags].index{ |f| f.match(lf) } }
-    #  return selected[idx]  if idx
-    #end
-    
+    #fail it
     ap "! exact match not found, selecting first subtitle"
     selected.first
   end
@@ -180,13 +176,7 @@ end
 
 def prepare_name(s)
   s = s.gsub('.','_').gsub(/_\d\d\d\d/, '')
-  h = {
-    /the_office_us/i => 'The_Office_(US)',
-    /Charlie.?s_Angels/i => "Charlie's_Angels",
-    /the_la_complex/i => 'The_L.A._Complex',
-    /shameless.*u.*s/i => 'Shameless_(US)',
-  }
-  h.to_a.each do |a|
+  SERIES_MAP.to_a.each do |a|
     s = s.gsub a[0], a[1]
   end
   s
@@ -210,8 +200,7 @@ Dir.glob('*.mkv').each do |name|
     @double = name.match( /^(.*)\.s(\d+)e\d+e(\d+)\.(.*)$/i )
   end
   next  unless tags
-  name = prepare_name(tags[1])
-  serie = { name: name,
+  serie = { name: prepare_name(tags[1]),
             season: tags[2],
             episode: tags[3],
             flags: tags[4].split('.'),
