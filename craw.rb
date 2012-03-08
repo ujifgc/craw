@@ -83,6 +83,8 @@ class Craw
       titles.each do |node|
         next  unless node.content.match /version/i
         table = node.ancestors('table').first
+        legend = table.css('td.newsDate').first
+        legend = legend.content.squeeze  if legend
         table.css('td.language').each do |lang|
           sub = {}
           sub[:version] = node.content.gsub(/version/i, '').squeeze
@@ -100,6 +102,7 @@ class Craw
           sub[:flags] = flags
           sub[:page] = subtitles[:page_url]
           sub[:flags] << 'web-dl'  if table.content.match /web.?dl/i
+          sub[:legend] = legend || ''
           subs << sub
         end
       end
@@ -147,6 +150,15 @@ class Craw
       return selected[idx]  
     end
 
+    #try to find the match mentioned in the legend
+    lidx = selected.index do |s|
+      s[:legend].match /#{serie[:rg]}/i
+    end
+    if lidx
+      ap "! found mentioned match: '#{selected[lidx][:legend]}' contains '#{serie[:rg]}'"
+      return selected[lidx]  
+    end
+
     #try to find the match likely to work
     WORK_GROUPS.each do |rgs|
       ok_flags = rgs  if serie[:rg].match_any rgs
@@ -162,7 +174,7 @@ class Craw
         return selected[idx]  
       end
     end
-    
+
     #fail it
     ap "! exact match not found, selecting first subtitle"
     selected.first
@@ -187,12 +199,14 @@ def extract_rg(s)
   RELEASE_GROUPS.each do |rg|
     return rg  if s.match /#{rg}/i
   end
+  s.split(/\-|\./).last
 end
 
 craw = Craw.new
 
 Dir.glob('*.mkv').each do |name|
-  srt = name.gsub /\.mkv$/, '.srt'
+  name = File.basename name, File.extname(name)
+  srt = name + '.srt'
   next  if File.exists? srt
   tags = name.match( /^(.*)\.s(\d+)e(\d+)\.(.*)$/i )
   unless tags
