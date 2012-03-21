@@ -75,39 +75,46 @@ class Craw
     resp = http_get subtitles[:page_url]
     ap status: resp.status, size: resp.body.length
 
-    #extract subtitle versions
-    if resp.status < 400
-      doc = Nokogiri::HTML resp.body
-      subs = []
-      titles = doc.css('td.NewsTitle')
-      titles.each do |node|
-        next  unless node.content.match /version/i
-        table = node.ancestors('table').first
-        legend = table.css('td.newsDate').first
-        legend = legend.content.squeeze  if legend
-        table.css('td.language').each do |lang|
-          sub = {}
-          sub[:version] = node.content.gsub(/version/i, '').squeeze
-          sub[:lang] = lang.content.squeeze
-          sub[:status] = lang.next_element.content.squeeze
-          links = lang.parent.css('td a').select{ |l| l[:href].match /original|updated/ }.sort
-          sub[:links] = links.map{ |l| l[:href] }
-          flags = lang.parent.next_element.css('img[title="Hearing Impaired"], img[title="Corrected"]')
-          stats = lang.parent.next_element.children.first.content.squeeze.match /.*?(\d+) downloads.*?(\d+) sequences.*/i
-          if stats
-            sub[:downloads] = stats[1].to_i
-            sub[:sequences] = stats[2].to_i
-          end
-          flags = sub[:version].split(/,[\s ]*/) + flags.map{|n| n[:title]}
-          sub[:flags] = flags
-          sub[:page] = subtitles[:page_url]
-          sub[:flags] << 'web-dl'  if table.content.match /web.?dl/i
-          sub[:legend] = legend || ''
-          subs << sub
-        end
-      end
-      subtitles[:subs] = subs
+    if resp.body.length < 30
+      ap "! page seems to be empty"
+      return nil
     end
+    if resp.status >= 400
+      ap "! page does not exist"
+      return nil
+    end
+
+    #extract subtitle versions
+    doc = Nokogiri::HTML resp.body
+    subs = []
+    titles = doc.css('td.NewsTitle')
+    titles.each do |node|
+      next  unless node.content.match /version/i
+      table = node.ancestors('table').first
+      legend = table.css('td.newsDate').first
+      legend = legend.content.squeeze  if legend
+      table.css('td.language').each do |lang|
+        sub = {}
+        sub[:version] = node.content.gsub(/version/i, '').squeeze
+        sub[:lang] = lang.content.squeeze
+        sub[:status] = lang.next_element.content.squeeze
+        links = lang.parent.css('td a').select{ |l| l[:href].match /original|updated/ }.sort
+        sub[:links] = links.map{ |l| l[:href] }
+        flags = lang.parent.next_element.css('img[title="Hearing Impaired"], img[title="Corrected"]')
+        stats = lang.parent.next_element.children.first.content.squeeze.match /.*?(\d+) downloads.*?(\d+) sequences.*/i
+        if stats
+          sub[:downloads] = stats[1].to_i
+          sub[:sequences] = stats[2].to_i
+        end
+        flags = sub[:version].split(/,[\s ]*/) + flags.map{|n| n[:title]}
+        sub[:flags] = flags
+        sub[:page] = subtitles[:page_url]
+        sub[:flags] << 'web-dl'  if table.content.match /web.?dl/i
+        sub[:legend] = legend || ''
+        subs << sub
+      end
+    end
+    subtitles[:subs] = subs
 
     #filter languages
     selected = subtitles[:subs].select do |sub|
@@ -220,7 +227,7 @@ Dir.glob('*.mkv').each do |name|
             flags: tags[4].split('.'),
             rg: extract_rg(tags[4]) }
   while true
-    ap "? searching sub for #{name} s.#{serie[:season]} ep.#{serie[:episode]} (tags: #{serie[:flags].join(', ')}, rg: #{serie[:rg]})"
+    ap "? searching sub for #{name} s.#{serie[:season]} e.#{serie[:episode]} (tags: #{serie[:flags].join(', ')}, rg: #{serie[:rg]})"
     meta = craw.get_url(serie)
     if meta
       ap meta
@@ -233,6 +240,7 @@ Dir.glob('*.mkv').each do |name|
       if @double
         ap "? trying to get meta from double serie"
         serie[:episode] = @double[3]
+        @double = nil
       else
         break
       end
