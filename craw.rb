@@ -217,8 +217,8 @@ Dir.glob('*.mkv').each do |name|
   next  if File.exists? srt
   tags = name.match( /^(.*)\.s(\d+)e(\d+)\.(.*)$/i )
   unless tags
-    tags = name.match( /^(.*)\.s(\d+)e(\d+)e\d+\.(.*)$/i )
-    @double = name.match( /^(.*)\.s(\d+)e\d+e(\d+)\.(.*)$/i )
+    tags = name.match( /^(.*)\.s(\d+)e(\d+)\-?e\d+\.(.*)$/i )
+    @double = name.match( /^(.*)\.s(\d+)e\d+\-?e(\d+)\.(.*)$/i )
   end
   next  unless tags
   serie = { name: prepare_name(tags[1]),
