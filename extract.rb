@@ -1,4 +1,4 @@
-#!/bin/ruby
+#!/usr/bin/ruby1.9.1
 require 'logger'
 require 'time'
 
@@ -16,7 +16,7 @@ files = Dir.glob dir + '/**/*.rar'
 files.each do |file|
   log.info "found file #{file}"
   inside = `7z l #{file}`
-  movies = inside.grep /\.mkv|\.mp4|\.avi|\.m4v$/
+  movies = inside.lines.grep /\.mkv|\.mp4|\.avi|\.m4v$/
   good = false
   @file = {}
   movies.each do |movie|
