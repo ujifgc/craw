@@ -9,8 +9,6 @@ log << "\n\n================ " + Time.new.strftime("%Y-%m-%d %H:%M:%S") + " ====
 
 dir = ARGV[1].gsub /\\+/, '/'
 
-rname = /^(.*)\.s(\d+)e(\d+)(?:\-?e\d+)?\.(.*)$/i
-
 files = Dir.glob dir + '/**/*.rar'
 
 files.each do |file|
@@ -25,7 +23,7 @@ files.each do |file|
       :name => tags[-1].strip,
       :size => tags[-3].strip,
     }
-    good = @file[:name].match rname
+    good = @file[:name].match( /^(.*)\.s(\d+)e(\d+)(?:\-?e\d+)?\.(.*)$/i ) || @file[:name].match( /^(.*)\.(\d+)x(\d+)?\.(.*)$/i ) || @file[:name].match( /^(.*)\.(\d+)?\.(.*)$/i )
     
     if good
       log.info "detected movie #{movie.strip}"
