@@ -17,6 +17,7 @@ SERIES_MAP = {
   /the_office_us/i => 'The_Office_(US)',
   /Charlie.?s_Angels/i => "Charlie's_Angels",
   /the_la_complex/i => 'The_L.A._Complex',
+  /the_l_a_complex/i => 'The_L.A._Complex',
   /shameless.*u.*s/i => 'Shameless_(US)',
 }
 
@@ -124,6 +125,11 @@ class Craw
     #drop incomplete
     selected.select! do |sub|
       sub.delete(:status).match /complete/i
+    end
+
+    #drop sequenceless
+    selected.select! do |sub|
+      sub[:sequences] > 10
     end
 
     #investigate version tags
