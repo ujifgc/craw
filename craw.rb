@@ -19,6 +19,9 @@ SERIES_MAP = {
   /the_la_complex/i => 'The_L.A._Complex',
   /the_l_a_complex/i => 'The_L.A._Complex',
   /shameless.*u.*s/i => 'Shameless_(US)',
+  /terminator.the.sarah.connor.chronicles/i => 'Terminator%3A_The_Sarah_Connor_Chronicles',
+  /Marvels.Agents.of.S.H.I.E.L.D/i => "Marvel's_Agents_of_S.H.I.E.L.D.",
+  /Scandal.US/i => 'Scandal',
 }
 
 class String
@@ -51,12 +54,13 @@ class Craw
 
   def http_get(url)
     print ".. wanna get #{url}, "
-    begin
-      rest
-      @@sess.get url
-    rescue # Patron::HostResolutionError
-      rest
-      @@sess.get url
+    loop do
+      begin
+        rest
+        return @@sess.get(url)
+      rescue Exception => e
+        ap "! exception #{e}"
+      end
     end
   end
 
@@ -65,7 +69,7 @@ class Craw
       @@fresh = false
       return
     end
-    duration = 2+rand(4)
+    duration = 1+rand(2)
     print "waiting #{duration} seconds...\n"
     sleep duration
   end
@@ -163,15 +167,6 @@ class Craw
       return selected[idx]  
     end
 
-    #try to find the match mentioned in the legend
-    lidx = selected.index do |s|
-      s[:legend].match /#{serie[:rg]}/i
-    end
-    if lidx
-      ap "! found mentioned match: '#{selected[lidx][:legend]}' contains '#{serie[:rg]}'"
-      return selected[lidx]  
-    end
-
     #try to find the match likely to work
     WORK_GROUPS.each do |rgs|
       ok_flags = rgs  if serie[:rg].match_any rgs
@@ -186,6 +181,15 @@ class Craw
         ap "! found group match: '#{selected[idx][:flags][fidx]}' should work with '#{serie[:rg]}'"
         return selected[idx]  
       end
+    end
+
+    #try to find the match mentioned in the legend
+    lidx = selected.index do |s|
+      s[:legend].match /#{serie[:rg]}/i
+    end
+    if lidx
+      ap "! found mentioned match: '#{selected[lidx][:legend]}' contains '#{serie[:rg]}'"
+      return selected[lidx]  
     end
 
     #fail it
@@ -217,7 +221,8 @@ end
 
 craw = Craw.new
 
-Dir.glob('*.mkv').each do |name|
+Dir.chdir ARGV[0] || '.'
+Dir.glob('*.{mkv,avi}').sort.each do |name|
   name = File.basename name, File.extname(name)
   srt = name + '.srt'
   next  if File.exists? srt
@@ -238,8 +243,13 @@ Dir.glob('*.mkv').each do |name|
     if meta
       ap meta
       sub = craw.get_sub(meta)
-      File.open(srt, 'wb') { |f| f << sub.body }
-      ap "= writing sub #{srt}"
+      if sub.body[0] == "<"
+        ap "! looks like we are banned for the day"
+        raise Exception, "got a subtitle with '<' as first byte"
+      else
+        File.open(srt, 'wb') { |f| f << sub.body }
+        ap "= writing sub #{srt}"
+      end
       break
     else
       ap "- failed to extract meta"
