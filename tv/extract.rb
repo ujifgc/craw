@@ -8,7 +8,7 @@ ARCHIVE = ARGV[2]
 
 raise ArgumentError, 'No directory provided'  unless INPUT.kind_of? String
 
-ap  "\n\n================ " + Time.new.strftime("%Y-%m-%d %H:%M:%S") + " =================\n"
+ap  "================ " + Time.new.strftime("%Y-%m-%d %H:%M:%S") + " ================="
 
 files = Dir.glob INPUT + '/*.rar'
 ap 'no files found'  unless files.any?
