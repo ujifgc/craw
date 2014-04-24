@@ -1,10 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
 cd `dirname $0`/tv
-
-DOWNLOAD_PATH=$TR_TORRENT_DIR/$TR_TORRENT_NAME
-EXTRACT_PATH=/mnt/u/temp/_WATCH!
-ARCHIVE_PATH=/mnt/u/tv
+source ../craw.conf
 
 echo Invoke script for $DOWNLAD_PATH at `date` >> logs/on-download.log
 

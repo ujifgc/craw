@@ -1,9 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
 cd `dirname $0`/tv
-
-WATCH_PATH=/mnt/u/transmission/.load
-RSS_URL="torrents/rss?download;l7;u=KEY;tp=SECRET"
+source ../craw.conf
 
 echo Invoke script at `date` >> logs/on-period.log
 

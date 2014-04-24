@@ -1,0 +1,7 @@
+DOWNLOAD_PATH=$TR_TORRENT_DIR/$TR_TORRENT_NAME
+
+EXTRACT_PATH=/mnt/u/temp/_WATCH!
+ARCHIVE_PATH=/mnt/u/tv
+
+WATCH_PATH=/mnt/u/transmission/.load
+RSS_URL="torrents/rss?download;l7;u=KEY;tp=SECRET"
